@@ -4,8 +4,10 @@ from src.models import train_random_forest
 from src.evaluate import find_optimal_threshold, evaluate_model
 from src.utils import save_artifacts
 import os
+import requests
 
 artifacts_path = os.getenv('ARTIFACTS_PATH', 'artifacts')
+api_url = os.getenv('API_URL')
 
 def main(filepath, test_size=0.2, random_state=42, n_estimators=100, ):
     
@@ -28,6 +30,13 @@ def main(filepath, test_size=0.2, random_state=42, n_estimators=100, ):
     print(f"Evaluation report: {evaluation}")
     
     save_artifacts(model, fraud_processor, best_threshold, output_dir=artifacts_path)
+    
+    if api_url:
+        try:
+            response = requests.post(f"{api_url}/reload") # Notify inference API to reload model only in Docker mode
+            print(f"Model reload triggered: {response.json()}")
+        except Exception as e:
+            print(f"Could not notify API: {e}")  
 
 
 if __name__ == "__main__":

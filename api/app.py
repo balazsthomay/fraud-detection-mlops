@@ -15,6 +15,7 @@ model, preprocessor, threshold = load_artifacts(artifacts_path) # Load artifacts
 class Transaction(BaseModel):
     features: List[float]  # Expects a list of 30 floats
 
+
 @app.get("/")
 def read_root():
     return {"message": "Fraud Detection API"}
@@ -41,3 +42,9 @@ def predict_fraud(transaction: Transaction):
         "prediction": "fraud" if y_pred == 1 else "legitimate",
         "fraud_probability": float(y_proba)
     }
+    
+@app.post("/reload")
+def reload_model():
+    global model, preprocessor, threshold
+    model, preprocessor, threshold = load_artifacts(artifacts_path)
+    return {"status": "model reloaded successfully"}
