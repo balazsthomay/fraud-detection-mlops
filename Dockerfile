@@ -1,0 +1,21 @@
+FROM python:3.13-slim
+
+WORKDIR /app
+
+COPY requirements.txt .
+RUN pip install -r requirements.txt
+
+COPY src/ ./src
+COPY data/ ./data/
+
+CMD ["python", "-m", "src.train_pipeline"]
+
+
+# build the container:
+# docker build -t fraud-detection:latest .
+
+# simply run the container, execute the pipeline, generate outputs (they won't be saved):
+# docker run fraud-detection:latest
+
+# if you want the artifacts to persist, use volumes (-v) to mount a local dir:
+# docker run -v $(pwd)/artifacts:/app/artifacts fraud-detection:latest
