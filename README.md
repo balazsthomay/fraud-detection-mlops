@@ -25,30 +25,46 @@ fraud-mlops/
 │   ├── visualize.py         # Performance plots
 │   ├── utils.py             # Model persistence
 │   └── train_pipeline.py    # End-to-end training
-├── artifacts/               # Trained models (mounted volume)
+├── api/
+│   └── app.py               # FastAPI inference service
+├── artifacts/               # Trained models
 ├── data/                    # Dataset
-├── Dockerfile               # Training container
+├── Dockerfile-training      # Training container
+├── Dockerfile-inference     # API container
 └── requirements.txt
 ```
 
-## Running the Training Pipeline
+## Running Locally
 
-### Local
+### Training
 ```bash
 python -m src.train_pipeline
 ```
 
-### Docker
+### API
 ```bash
-# Build image
-docker build -t fraud-detection:latest .
+uvicorn api.app:app --reload
+# Visit http://localhost:8000/docs
+```
 
-# Train model (saves artifacts to local directory)
+## Running with Docker
+
+### Training
+```bash
+docker build -t fraud-detection:latest -f Dockerfile-training .
 docker run -v $(pwd)/artifacts:/app/artifacts fraud-detection:latest
+```
+
+### API
+```bash
+docker build -t fraud-detection-api:latest -f Dockerfile-inference .
+docker run -p 8000:8000 fraud-detection-api:latest
+# Visit http://localhost:8000/docs
 ```
 
 ## Tech Stack
 - Python 3.13
 - scikit-learn, pandas, numpy
+- FastAPI for model serving
 - Docker for containerization
 - joblib for model serialization

@@ -2,6 +2,8 @@ FROM python:3.13-slim
 
 WORKDIR /app
 
+ENV ARTIFACTS_PATH=/app/artifacts
+
 COPY requirements.txt .
 RUN pip install -r requirements.txt
 
@@ -12,7 +14,7 @@ CMD ["python", "-m", "src.train_pipeline"]
 
 
 # build the container:
-# docker build -t fraud-detection:latest .
+# docker build -t fraud-detection:latest -f Dockerfile-training .
 
 # simply run the container, execute the pipeline, generate outputs (they won't be saved):
 # docker run fraud-detection:latest

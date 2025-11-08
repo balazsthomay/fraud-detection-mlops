@@ -1,0 +1,23 @@
+FROM python:3.13-slim
+
+WORKDIR /app
+
+ENV ARTIFACTS_PATH=/app/artifacts
+
+COPY requirements.txt .
+RUN pip install -r requirements.txt
+
+COPY src/ ./src/
+COPY artifacts/ ./artifacts
+COPY api/ ./api/
+
+CMD ["uvicorn", "api.app:app", "--host", "0.0.0.0", "--port", "8000"]
+
+# COPY <source_on_your_machine> <destination_in_container>
+
+# build the container:
+# docker build -t fraud-detection-api:latest -f Dockerfile-inference .
+
+# run the container:
+# The -p 8000:8000 maps port 8000 from the container to port 8000 on my Mac.
+# docker run -p 8000:8000 fraud-detection-api:latest

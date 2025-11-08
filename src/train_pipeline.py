@@ -3,6 +3,9 @@ from src.preprocessing import FraudPreprocessor, split_data
 from src.models import train_random_forest
 from src.evaluate import find_optimal_threshold, evaluate_model
 from src.utils import save_artifacts
+import os
+
+artifacts_path = os.getenv('ARTIFACTS_PATH', 'artifacts')
 
 def main(filepath, test_size=0.2, random_state=42, n_estimators=100, ):
     
@@ -24,7 +27,7 @@ def main(filepath, test_size=0.2, random_state=42, n_estimators=100, ):
     print(f"Best threshold: {best_threshold} \n Best F1 score: {best_f1}")
     print(f"Evaluation report: {evaluation}")
     
-    save_artifacts(model, fraud_processor, best_threshold, output_dir='../artifacts')
+    save_artifacts(model, fraud_processor, best_threshold, output_dir=artifacts_path)
 
 
 if __name__ == "__main__":
