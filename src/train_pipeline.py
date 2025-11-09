@@ -7,7 +7,6 @@ import os
 import requests
 
 artifacts_path = os.getenv('ARTIFACTS_PATH', 'artifacts')
-api_url = os.getenv('API_URL')
 
 def main(filepath, test_size=0.2, random_state=42, n_estimators=100, ):
     
@@ -29,15 +28,8 @@ def main(filepath, test_size=0.2, random_state=42, n_estimators=100, ):
     print(f"Best threshold: {best_threshold} \n Best F1 score: {best_f1}")
     print(f"Evaluation report: {evaluation}")
     
-    save_artifacts(model, fraud_processor, best_threshold, output_dir=artifacts_path)
+    save_artifacts(model, fraud_processor, best_threshold, best_f1, output_dir=artifacts_path, suffix='-new') # save artifacts with -new suffix
     
-    if api_url:
-        try:
-            response = requests.post(f"{api_url}/reload") # Notify inference API to reload model only in Docker mode
-            print(f"Model reload triggered: {response.json()}")
-        except Exception as e:
-            print(f"Could not notify API: {e}")  
-
 
 if __name__ == "__main__":
     main(filepath='./data/creditcard.csv')

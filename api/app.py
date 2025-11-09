@@ -1,3 +1,5 @@
+# servers predictions
+
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from typing import List
@@ -8,7 +10,7 @@ from src.utils import load_artifacts
 app = FastAPI()
 
 artifacts_path = os.getenv('ARTIFACTS_PATH', 'artifacts')
-model, preprocessor, threshold = load_artifacts(artifacts_path) # Load artifacts once at startup
+model, preprocessor, threshold, best_f1 = load_artifacts(artifacts_path) # Load artifacts once at startup
 
 # model, preprocessor, threshold = load_artifacts("../artifacts")
 
@@ -46,5 +48,5 @@ def predict_fraud(transaction: Transaction):
 @app.post("/reload")
 def reload_model():
     global model, preprocessor, threshold
-    model, preprocessor, threshold = load_artifacts(artifacts_path)
+    model, preprocessor, threshold, best_f1 = load_artifacts(artifacts_path)
     return {"status": "model reloaded successfully"}
