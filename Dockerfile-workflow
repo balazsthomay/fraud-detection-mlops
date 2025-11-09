@@ -1,0 +1,23 @@
+FROM python:3.13-slim
+
+WORKDIR /app
+
+ENV ARTIFACTS_PATH=/app/artifacts
+ENV API_URL=http://host.docker.internal:8000
+ENV DATA_PATH=./data/creditcard.csv
+ENV PREFECT_API_URL=http://host.docker.internal:4200/api
+
+
+COPY requirements.txt .
+RUN pip install -r requirements.txt
+
+COPY src/ ./src/
+COPY data/ ./data/
+
+CMD ["python", "-m", "src.workflow"]
+
+# To use a local Prefect server, make sure to start it before running the container:
+# prefect server run
+
+# docker build -t fraud-workflow:latest -f Dockerfile-workflow .
+# docker run -v $(pwd)/artifacts:/app/artifacts fraud-workflow:latest
