@@ -1,6 +1,6 @@
 # Fraud Detection MLOps Pipeline
 
-MLOps pipeline for credit card fraud detection.
+End-to-end MLOps pipeline for credit card fraud detection with automated retraining, conditional deployment, and workflow orchestration.
 
 ## Dataset
 Credit Card Fraud Detection dataset from Kaggle
@@ -10,22 +10,23 @@ Credit Card Fraud Detection dataset from Kaggle
 
 ## Model Performance
 Random Forest Classifier with optimized decision threshold (0.25)
-- Precision: 92%
-- Recall: 85%
+- Precision: 96%
+- Recall: 74%
 - F1 Score: 0.88
 
 ## Architecture
 
 ### Training Pipeline
-Containerized model training with automatic artifact persistence and API notification.
+Containerized model training that saves new model candidates with `-new` suffix for safe comparison before deployment.
+
+### Comparison & Deployment
+Automated comparison of new vs. existing models based on F1 score. Only deploys models that outperform the current baseline.
 
 ### Inference API
-FastAPI service for real-time fraud prediction with hot-reload capability for model updates.
+FastAPI service for real-time fraud prediction with hot-reload capability for zero-downtime model updates.
 
-### Model Update Flow
-1. Training container retrains model and saves artifacts to shared volume
-2. Training notifies inference API via HTTP POST to `/reload`
-3. API reloads model in-memory without downtime
+### Workflow Orchestration
+Prefect-based scheduling for automated retraining and deployment workflows (configurable via cron).
 
 ## Project Structure
 ```
@@ -35,26 +36,40 @@ fraud-mlops/
 │   ├── preprocessing.py     # Feature scaling & splitting
 │   ├── models.py            # Model training
 │   ├── evaluate.py          # Metrics & threshold optimization
-│   ├── visualize.py         # Performance plots
-│   ├── utils.py             # Model persistence
-│   └── train_pipeline.py    # End-to-end training
+│   ├── utils.py             # Model persistence with versioning
+│   ├── train_pipeline.py    # Training pipeline (saves -new artifacts)
+│   ├── compare_and_deploy.py # Conditional deployment logic
+│   └── workflow.py          # Prefect orchestration
 ├── api/
 │   └── app.py               # FastAPI inference service
-├── artifacts/               # Trained models (shared volume)
+├── artifacts/               # Model artifacts (shared volume)
 ├── data/                    # Dataset
 ├── Dockerfile-training      # Training container
 ├── Dockerfile-inference     # API container
+├── Dockerfile-workflow      # Orchestration container
 └── requirements.txt
 ```
 
 ## Running Locally
 
-### Training
+### Start Prefect Server
 ```bash
-python -m src.train_pipeline
+prefect server start
+# Access UI at http://localhost:4200
 ```
 
-### API
+### Run Orchestrated Workflow
+```bash
+python -m src.workflow
+```
+
+### Manual Training & Comparison
+```bash
+python -m src.train_pipeline
+python -m src.compare_and_deploy
+```
+
+### Inference API
 ```bash
 uvicorn api.app:app --reload
 # Visit http://localhost:8000/docs
@@ -62,26 +77,36 @@ uvicorn api.app:app --reload
 
 ## Running with Docker
 
-### Start API (with volume mount for live model updates)
+### Build Containers
 ```bash
+docker build -t fraud-detection:latest -f Dockerfile-training .
 docker build -t fraud-detection-api:latest -f Dockerfile-inference .
+docker build -t fraud-workflow:latest -f Dockerfile-workflow .
+```
+
+### Start Orchestrated Pipeline
+```bash
+# Start Prefect server on host
+prefect server start
+
+# Run workflow container (requires Prefect server)
+docker run -v $(pwd)/artifacts:/app/artifacts fraud-workflow:latest
+```
+
+### Start API
+```bash
 docker run -v $(pwd)/artifacts:/app/artifacts -p 8000:8000 fraud-detection-api:latest
 ```
 
-### Train Model (automatically notifies API to reload)
-```bash
-docker build -t fraud-detection:latest -f Dockerfile-training .
-docker run -v $(pwd)/artifacts:/app/artifacts fraud-detection:latest
-```
-
-### API Endpoints
+## API Endpoints
 - `GET /` - Health check
-- `POST /predict` - Fraud prediction (requires 30 features)
+- `POST /predict` - Fraud prediction (30 features required)
 - `POST /reload` - Hot-reload model from artifacts
 
 ## Tech Stack
 - Python 3.13
 - scikit-learn, pandas, numpy
 - FastAPI for model serving
+- Prefect for workflow orchestration
 - Docker for containerization
 - joblib for model serialization
