@@ -4,11 +4,11 @@ from src.models import train_random_forest
 from src.evaluate import find_optimal_threshold, evaluate_model
 from src.utils import save_artifacts
 import os
-import requests
 
 artifacts_path = os.getenv('ARTIFACTS_PATH', 'artifacts')
+data_path = os.getenv('DATA_PATH', './data/creditcard.csv')
 
-def main(filepath, test_size=0.2, random_state=42, n_estimators=100, ):
+def main(filepath=data_path, test_size=0.2, random_state=42, n_estimators=100):
     
     X, y = load_data(filepath) # load data, get features/target
     
@@ -32,4 +32,4 @@ def main(filepath, test_size=0.2, random_state=42, n_estimators=100, ):
     
 
 if __name__ == "__main__":
-    main(filepath='./data/creditcard.csv')
+    main()
