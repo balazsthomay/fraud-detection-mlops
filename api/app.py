@@ -41,12 +41,12 @@ def predict_fraud(transaction: Transaction):
     y_pred = 1 if y_proba >= threshold else 0
     
     return {
-        "prediction": "fraud" if y_pred == 1 else "legitimate",
+        "prediction": "fraud" if y_pred == 1 else "legit",
         "fraud_probability": float(y_proba)
     }
     
 @app.post("/reload")
 def reload_model():
-    global model, preprocessor, threshold
+    global model, preprocessor, threshold, best_f1
     model, preprocessor, threshold, best_f1 = load_artifacts(artifacts_path)
     return {"status": "model reloaded successfully"}
