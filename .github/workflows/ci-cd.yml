@@ -1,0 +1,77 @@
+name: CI/CD Pipeline
+
+on:
+  pull_request:
+    branches: [ main ]
+  push:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.13'
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install pytest
+    
+    - name: Run integration tests
+      env:
+        DATA_PATH: ./data/creditcard_ci.csv
+        ARTIFACTS_PATH: artifacts
+      run: |
+        pytest tests/ -v
+
+  build:
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v2
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: us-east-1  # Change to your region
+    
+    - name: Login to Amazon ECR
+      id: login-ecr
+      uses: aws-actions/amazon-ecr-login@v1
+    
+    - name: Build and push Docker images
+      env:
+        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        IMAGE_TAG: ${{ github.sha }}
+      run: |
+        # Build images
+        docker build -t $ECR_REGISTRY/fraud-detection-training:$IMAGE_TAG -f Dockerfile-training .
+        docker build -t $ECR_REGISTRY/fraud-detection-api:$IMAGE_TAG -f Dockerfile-inference .
+        docker build -t $ECR_REGISTRY/fraud-detection-workflow:$IMAGE_TAG -f Dockerfile-workflow .
+        
+        # Push to ECR
+        docker push $ECR_REGISTRY/fraud-detection-training:$IMAGE_TAG
+        docker push $ECR_REGISTRY/fraud-detection-api:$IMAGE_TAG
+        docker push $ECR_REGISTRY/fraud-detection-workflow:$IMAGE_TAG
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Deployment complete
+      run: |
+        echo "Docker images pushed to ECR successfully!"
+        echo "Images are tagged with commit SHA: ${{ github.sha }}"
+        echo "Manual ECS deployment required - update task definitions to use new image tags"
