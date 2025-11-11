@@ -4,6 +4,8 @@ from src.compare_and_deploy import main as compare_and_deploy
 from src.utils import load_artifacts
 import shutil
 import pytest
+from unittest.mock import patch, MagicMock
+
 
 artifacts_path = os.getenv('ARTIFACTS_PATH', 'artifacts')
 
@@ -30,8 +32,13 @@ def backup_baseline_artifacts():
     os.remove('artifacts/threshold.backup')
     os.remove('artifacts/best_f1.backup')
     
+
+@patch('src.compare_and_deploy.boto3.client')
+def test_compare_and_deploy_better_model(mock_boto3, backup_baseline_artifacts):
+    # Mock S3 client
+    mock_s3 = MagicMock()
+    mock_boto3.return_value = mock_s3
     
-def test_compare_and_deploy_better_model(backup_baseline_artifacts):
     # Copy baseline artifacts to create -new versions
     shutil.copy('artifacts/model.joblib', 'artifacts/model-new.joblib')
     shutil.copy('artifacts/preprocessor.joblib', 'artifacts/preprocessor-new.joblib')
@@ -46,7 +53,12 @@ def test_compare_and_deploy_better_model(backup_baseline_artifacts):
     assert best_f1 == 0.95
     
 
-def test_compare_and_deploy_worse_model(backup_baseline_artifacts):
+@patch('src.compare_and_deploy.boto3.client')
+def test_compare_and_deploy_worse_model(mock_boto3, backup_baseline_artifacts):
+    # Mock S3 client
+    mock_s3 = MagicMock()
+    mock_boto3.return_value = mock_s3
+    
     # Copy baseline artifacts to create -new versions
     shutil.copy('artifacts/model.joblib', 'artifacts/model-new.joblib')
     shutil.copy('artifacts/preprocessor.joblib', 'artifacts/preprocessor-new.joblib')
