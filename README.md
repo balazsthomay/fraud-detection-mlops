@@ -1,112 +1,110 @@
 # Fraud Detection MLOps Pipeline
 
-End-to-end MLOps pipeline for credit card fraud detection with automated retraining, conditional deployment, and workflow orchestration.
+End-to-end MLOps pipeline for credit card fraud detection with automated testing, CI/CD, cloud deployment, and conditional model updates.
 
 ## Dataset
 Credit Card Fraud Detection dataset from Kaggle
-- 284,807 transactions
+- 284,807 transactions (10k subset for CI/CD testing)
 - 0.172% fraud rate (492 fraudulent transactions)
 - 30 features (28 PCA-transformed + Time + Amount)
 
 ## Model Performance
-Random Forest Classifier with optimized decision threshold (0.25)
+Random Forest Classifier with optimized decision threshold
 - Precision: 96%
 - Recall: 74%
 - F1 Score: 0.88
 
 ## Architecture
 
-### Training Pipeline
-Containerized model training that saves new model candidates with `-new` suffix for safe comparison before deployment.
+### Training Pipeline (Local)
+Trains models locally, saves artifacts with `-new` suffix for comparison before deployment.
 
 ### Comparison & Deployment
-Automated comparison of new vs. existing models based on F1 score. Only deploys models that outperform the current baseline.
+Compares new vs. baseline models by F1 score. Deploys to S3 only when new model outperforms baseline.
 
-### Inference API
-FastAPI service for real-time fraud prediction with hot-reload capability for zero-downtime model updates.
+### Inference API (AWS ECS)
+FastAPI service deployed on AWS ECS, loads models from S3, serves predictions via public endpoint.
 
-### Workflow Orchestration
-Prefect-based scheduling for automated retraining and deployment workflows (configurable via cron).
+### CI/CD Pipeline (GitHub Actions)
+- **Test:** Runs integration tests on every PR (mocked AWS calls)
+- **Build:** Builds Docker images and pushes to ECR on main branch merges
+- **Deploy:** Manual ECS updates (every code change requires manually updating task definition) - - I'll maybe automate it
 
 ## Project Structure
 ```
 fraud-mlops/
 ├── src/
-│   ├── data.py              # Data loading
-│   ├── preprocessing.py     # Feature scaling & splitting
-│   ├── models.py            # Model training
-│   ├── evaluate.py          # Metrics & threshold optimization
-│   ├── utils.py             # Model persistence with versioning
-│   ├── train_pipeline.py    # Training pipeline (saves -new artifacts)
-│   ├── compare_and_deploy.py # Conditional deployment logic
-│   └── workflow.py          # Prefect orchestration
+│   ├── train_pipeline.py    # Training (saves -new artifacts)
+│   ├── compare_and_deploy.py # F1 comparison + S3 upload
+│   └── utils.py             # Artifact persistence
 ├── api/
-│   └── app.py               # FastAPI inference service
-├── artifacts/               # Model artifacts (shared volume)
-├── data/                    # Dataset
-├── Dockerfile-training      # Training container
-├── Dockerfile-inference     # API container
-├── Dockerfile-workflow      # Orchestration container
+│   └── app.py               # FastAPI (loads from S3)
+├── tests/
+│   ├── test_training.py     # Training integration tests
+│   ├── test_inference_api.py # API integration tests
+│   └── test_compare_and_deploy.py # Deployment logic tests
+├── .github/workflows/
+│   └── ci-cd.yml            # GitHub Actions pipeline
+├── data/
+│   └── creditcard_ci.csv    # 10k-row test dataset
+├── Dockerfile-training
+├── Dockerfile-inference
 └── requirements.txt
 ```
 
+## Workflow
+
+### Phase 1: Local Training + Cloud Serving
+1. Train locally: `python -m src.train_pipeline`
+2. Compare models: `python -m src.compare_and_deploy` (auto-uploads to S3 if better)
+3. API in ECS auto-reloads from S3
+
+### CI/CD Flow
+- **Pull Request:** Runs tests only
+- **Merge to main:** Tests → Build images → Push to ECR
+
 ## Running Locally
 
-### Start Prefect Server
-```bash
-prefect server start
-# Access UI at http://localhost:4200
-```
-
-### Run Orchestrated Workflow
-```bash
-python -m src.workflow
-```
-
-### Manual Training & Comparison
+### Training & Deployment
 ```bash
 python -m src.train_pipeline
 python -m src.compare_and_deploy
 ```
 
-### Inference API
+### Inference API (Local)
 ```bash
 uvicorn api.app:app --reload
 # Visit http://localhost:8000/docs
 ```
 
-## Running with Docker
-
-### Build Containers
+### Testing
 ```bash
-docker build -t fraud-detection:latest -f Dockerfile-training .
-docker build -t fraud-detection-api:latest -f Dockerfile-inference .
-docker build -t fraud-workflow:latest -f Dockerfile-workflow .
+pytest tests/ -v
 ```
 
-### Start Orchestrated Pipeline
+## AWS Deployment
+
+### Prerequisites
+- ECR repositories: `fraud-detection-api`
+- S3 bucket: `fraud-mlops-artifacts-bt`
+- ECS cluster, task definition, and service configured
+- IAM role with S3 and ECR permissions
+
+### API Endpoints
+- Health: `http://<ecs-public-ip>:8000/`
+- Predict: `POST http://<ecs-public-ip>:8000/predict`
+- Reload: `POST http://<ecs-public-ip>:8000/reload`
+
+### Example Request
 ```bash
-# Start Prefect server on host
-prefect server start
-
-# Run workflow container (requires Prefect server)
-docker run -v $(pwd)/artifacts:/app/artifacts fraud-workflow:latest
+curl -X POST http://<ecs-ip>:8000/predict \
+  -H "Content-Type: application/json" \
+  -d '{"features": [0.0, 1.19, ..., 2.69]}'
 ```
-
-### Start API
-```bash
-docker run -v $(pwd)/artifacts:/app/artifacts -p 8000:8000 fraud-detection-api:latest
-```
-
-## API Endpoints
-- `GET /` - Health check
-- `POST /predict` - Fraud prediction (30 features required)
-- `POST /reload` - Hot-reload model from artifacts
 
 ## Tech Stack
-- Python 3.13
-- scikit-learn, pandas, numpy
-- FastAPI for model serving
-- Prefect for workflow orchestration
-- Docker for containerization
-- joblib for model serialization
+- **ML:** scikit-learn, pandas, numpy
+- **API:** FastAPI, uvicorn
+- **Infrastructure:** Docker, AWS (ECS, ECR, S3)
+- **CI/CD:** GitHub Actions, pytest
+- **Storage:** S3 (artifacts), joblib (serialization)

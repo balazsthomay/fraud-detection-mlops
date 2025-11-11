@@ -2,6 +2,8 @@ from prefect import flow, task
 from src.train_pipeline import main as train_pipeline
 from src.compare_and_deploy import main as compare_and_deploy
 
+# Training happens locally so this module is not used
+# if we were to run the workflow in ECS (decided not to to save money) then Prefect would orchestrate scheduled retraining
 
 @task(log_prints=True)
 def train_pipeline_task():

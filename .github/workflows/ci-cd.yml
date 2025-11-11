@@ -35,6 +35,8 @@ jobs:
     needs: test
     runs-on: ubuntu-latest
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    outputs:
+      registry: ${{ steps.login-ecr.outputs.registry }}
     
     steps:
     - uses: actions/checkout@v3
@@ -68,8 +70,36 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
-    - name: Deployment complete
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v2
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: us-east-1
+    
+    - name: Deploy to ECS
+      env:
+        ECR_REGISTRY: ${{ needs.build.outputs.registry }}
+        IMAGE_TAG: ${{ github.sha }}
+        CLUSTER_NAME: fraud-detection-cluster
+        SERVICE_NAME: fraud-detection-api-service
+        TASK_FAMILY: fraud-detection-api-task
       run: |
-        echo "Docker images pushed to ECR successfully!"
-        echo "Images are tagged with commit SHA: ${{ github.sha }}"
-        echo "Manual ECS deployment required - update task definitions to use new image tags"
+        # Get current task definition
+        TASK_DEFINITION=$(aws ecs describe-task-definition --task-definition $TASK_FAMILY --query 'taskDefinition' --output json)
+        
+        # Update image URI in the task definition
+        NEW_TASK_DEF=$(echo $TASK_DEFINITION | jq --arg IMAGE "$ECR_REGISTRY/fraud-detection-api:$IMAGE_TAG" '.containerDefinitions[0].image = $IMAGE | del(.taskDefinitionArn, .revision, .status, .requiresAttributes, .compatibilities, .registeredAt, .registeredBy)')
+        
+        # Register new task definition revision
+        NEW_TASK_INFO=$(aws ecs register-task-definition --cli-input-json "$NEW_TASK_DEF")
+        NEW_REVISION=$(echo $NEW_TASK_INFO | jq -r '.taskDefinition.revision')
+        
+        # Update service to use new task definition and force new deployment
+        aws ecs update-service \
+          --cluster $CLUSTER_NAME \
+          --service $SERVICE_NAME \
+          --task-definition ${TASK_FAMILY}:${NEW_REVISION} \
+          --force-new-deployment
+        
+        echo "Deployed ${TASK_FAMILY}:${NEW_REVISION} to ECS"

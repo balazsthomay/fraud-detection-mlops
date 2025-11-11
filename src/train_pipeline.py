@@ -33,10 +33,3 @@ def main(filepath=data_path, test_size=0.2, random_state=42, n_estimators=100):
 
 if __name__ == "__main__":
     main()
-    
-    
-# When training is done, upload artifacts to S3:
-# aws s3 cp artifacts/model.joblib s3://fraud-mlops-artifacts-bt/artifacts/
-# aws s3 cp artifacts/preprocessor.joblib s3://fraud-mlops-artifacts-bt/artifacts/
-# aws s3 cp artifacts/threshold.joblib s3://fraud-mlops-artifacts-bt/artifacts/
-# aws s3 cp artifacts/best_f1.joblib s3://fraud-mlops-artifacts-bt/artifacts/

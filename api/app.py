@@ -83,7 +83,10 @@ def reload_model():
     model, preprocessor, threshold, best_f1 = load_artifacts(input_dir='/tmp')
     
     # Return success message
-    return {"status": "model reloaded successfully"}
+    return {
+        "status": "model reloaded successfully",
+        "model_f1_score": float(best_f1)
+    }
 
 
 
