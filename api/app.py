@@ -5,14 +5,31 @@ from pydantic import BaseModel
 from typing import List
 import numpy as np
 import os
+import boto3
 from src.utils import load_artifacts
 
 app = FastAPI()
 
-artifacts_path = os.getenv('ARTIFACTS_PATH', 'artifacts')
-model, preprocessor, threshold, best_f1 = load_artifacts(artifacts_path) # Load artifacts once at startup
+S3_BUCKET = os.getenv('S3_BUCKET', 'fraud-mlops-artifacts-bt') # which S3 bucket
+S3_PREFIX = 'artifacts/'  # folder in S3 bucket
 
-# model, preprocessor, threshold = load_artifacts("../artifacts")
+# artifacts_path = os.getenv('ARTIFACTS_PATH', 'artifacts') # this line is redundant, used for local
+
+try:
+    # download from S3 and load artifacts on startup
+    s3_client = boto3.client('s3')
+    for artifact in ["model", "preprocessor", "threshold", "best_f1"]:
+        s3_client.download_file(
+            Bucket=S3_BUCKET,
+            Key=f'{S3_PREFIX}{artifact}.joblib',
+            Filename=f'/tmp/{artifact}.joblib'
+        )
+    model, preprocessor, threshold, best_f1 = load_artifacts('/tmp')
+    print("Models loaded from S3 successfully")
+except Exception as e:
+    print(f"Could not load models on startup: {e}")
+    # Set to None so API knows models aren't ready
+    model = preprocessor = threshold = best_f1 = None
 
 class Transaction(BaseModel):
     features: List[float]  # Expects a list of 30 floats
@@ -24,6 +41,10 @@ def read_root():
 
 @app.post("/predict")
 def predict_fraud(transaction: Transaction):
+    # Check if models are loaded
+    if model is None:
+        raise HTTPException(status_code=503, detail="Model not loaded. Call /reload endpoint first.")
+    
     # Validate input length
     if len(transaction.features) != 30:
         raise HTTPException(status_code=400, detail="Expected 30 features")
@@ -48,5 +69,22 @@ def predict_fraud(transaction: Transaction):
 @app.post("/reload")
 def reload_model():
     global model, preprocessor, threshold, best_f1
-    model, preprocessor, threshold, best_f1 = load_artifacts(artifacts_path)
+    
+    # Download artifacts from S3 to local temp directory
+    s3_client = boto3.client('s3')
+    for artifact in ["model", "preprocessor", "threshold", "best_f1"]:
+        s3_client.download_file(
+            Bucket=S3_BUCKET,
+            Key=f'{S3_PREFIX}{artifact}.joblib',  # Path in S3
+            Filename=f'/tmp/{artifact}.joblib'    # Where to save in container
+        )
+    
+    # Load artifacts from temp directory
+    model, preprocessor, threshold, best_f1 = load_artifacts(input_dir='/tmp')
+    
+    # Return success message
     return {"status": "model reloaded successfully"}
+
+
+
+# full flow WITH AWS S3: train locally → upload to S3 → call API reload → verify predictions work

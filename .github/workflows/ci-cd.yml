@@ -44,7 +44,7 @@ jobs:
       with:
         aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        aws-region: us-east-1  # Change to your region
+        aws-region: us-east-1
     
     - name: Login to Amazon ECR
       id: login-ecr
@@ -58,12 +58,10 @@ jobs:
         # Build images
         docker build -t $ECR_REGISTRY/fraud-detection-training:$IMAGE_TAG -f Dockerfile-training .
         docker build -t $ECR_REGISTRY/fraud-detection-api:$IMAGE_TAG -f Dockerfile-inference .
-        docker build -t $ECR_REGISTRY/fraud-detection-workflow:$IMAGE_TAG -f Dockerfile-workflow .
         
         # Push to ECR
         docker push $ECR_REGISTRY/fraud-detection-training:$IMAGE_TAG
         docker push $ECR_REGISTRY/fraud-detection-api:$IMAGE_TAG
-        docker push $ECR_REGISTRY/fraud-detection-workflow:$IMAGE_TAG
 
   deploy:
     needs: build

@@ -11,9 +11,13 @@
 from src.utils import load_artifacts
 import os
 import requests
+import boto3
 
 artifacts_path = os.getenv('ARTIFACTS_PATH', 'artifacts')
 api_url = os.getenv('API_URL')
+
+S3_BUCKET = os.getenv('S3_BUCKET', 'fraud-mlops-artifacts-bt') # which S3 bucket
+S3_PREFIX = 'artifacts/'  # folder in S3 bucket
 
 def main():
     
@@ -29,6 +33,15 @@ def main():
                 os.remove(os.path.join(artifacts_path, f"{artifact}.joblib"))
                 os.rename(os.path.join(artifacts_path, f"{artifact}-new.joblib"), os.path.join(artifacts_path, f"{artifact}.joblib"))
             print(f"New model F1: {best_f1_new} is better than old model F1: {best_f1}. Deploying new model.")
+            
+            # upload artifacts to S3
+            s3_client = boto3.client('s3')
+            for artifact in ["model", "preprocessor", "threshold", "best_f1"]:
+                s3_client.upload_file(
+                    Filename=os.path.join(artifacts_path, f'{artifact}.joblib'),  # Local file path
+                    Bucket=S3_BUCKET,                                              # S3 bucket
+                    Key=f'{S3_PREFIX}{artifact}.joblib'                           # Path in S3
+                )
             
             # notify API to reload model
             if api_url:
